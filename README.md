@@ -29,3 +29,8 @@ assets/
   background/stadium_bg.png
   balls/baseball.png
 ```
+
+
+## v6 에셋 로딩
+
+GitHub Pages의 폴더/경로 문제를 피하기 위해 `assets.js`에도 배경과 야구공이 내장되어 있습니다. `index.html`, `assets.js`, `game.js`, `styles.css`를 저장소 루트에 함께 올리세요.

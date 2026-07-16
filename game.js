@@ -11,9 +11,9 @@
   const pitchInfo = document.getElementById('pitchInfo');
 
   const backgroundImage = new Image();
-  backgroundImage.src = 'assets/background/stadium_bg.png';
+  backgroundImage.src = window.GAME_ASSETS?.background || './assets/background/stadium_bg.png';
   const ballImage = new Image();
-  ballImage.src = 'assets/balls/baseball.png';
+  ballImage.src = window.GAME_ASSETS?.baseball || './assets/balls/baseball.png';
 
   let W = innerWidth;
   let H = innerHeight;
