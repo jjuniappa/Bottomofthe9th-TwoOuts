@@ -184,7 +184,7 @@
 
   function resolvePitch() {
     const z = zone();
-    const finalRadius = pitch.start.r * 0.26;
+    const finalRadius = pitch.start.r * 0.18;
     const x = pitch.end.x;
     const y = pitch.end.y;
     const touches = circleTouchesRect(x, y, finalRadius, z);
@@ -197,13 +197,13 @@
       const hit = Math.random() < hitRate;
 
       if (hit) {
-        flashMessage(`안타! ${Math.round(hitRate * 100)}%`);
-        endGame(false, '끝내기 안타', `스트라이크존과 겹친 정도에 따른 ${Math.round(hitRate * 100)}% 확률로 타격에 성공했습니다.`);
+        flashMessage('안타!');
+        endGame(false, '안타', '타자가 공을 받아쳤습니다.');
         return;
       }
 
       strikes++;
-      flashMessage(`헛스윙! ${Math.round((1 - hitRate) * 100)}%`);
+      flashMessage('헛스윙!');
       if (strikes >= 3) {
         endGame(true, '삼진 아웃!', '마지막 타자를 헛스윙 삼진으로 잡았습니다.');
         return;
@@ -274,15 +274,6 @@
     ctx.fillRect(0, 0, W, H);
   }
 
-  function drawZone() {
-    const z = zone();
-    ctx.strokeStyle = '#ffffffd0';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 5]);
-    ctx.strokeRect(z.x, z.y, z.w, z.h);
-    ctx.setLineDash([]);
-  }
-
   function drawBall(x, y, r, rotation = 0, alpha = 1) {
     ctx.save();
     ctx.globalAlpha = alpha;
@@ -335,7 +326,6 @@
     const dt = Math.min(40, now - lastTime);
     lastTime = now;
     drawBackgroundCover();
-    drawZone();
 
     if (state === 'ready' || state === 'cooldown') drawReadyBall();
     drawPointer();
@@ -348,12 +338,12 @@
       for (let i = 7; i >= 1; i--) {
         const tt = Math.max(0, eased - i * 0.022);
         const tp = cubicBezier(pitch.start, pitch.control1, pitch.control2, pitch.end, tt);
-        const tr = pitch.start.r * (1 - tt * 0.74) * (1 - i * 0.055);
+        const tr = pitch.start.r * (1 - tt * 0.82) * (1 - i * 0.055);
         drawBall(tp.x, tp.y, tr, tt * 18 * pitch.curve, Math.max(0.035, 0.2 - i * 0.022));
       }
 
       const p = cubicBezier(pitch.start, pitch.control1, pitch.control2, pitch.end, eased);
-      const r = pitch.start.r * (1 - eased * 0.74);
+      const r = pitch.start.r * (1 - eased * 0.82);
       drawBall(p.x, p.y, r, eased * 18 * pitch.curve);
       if (t >= 1) resolvePitch();
     }
