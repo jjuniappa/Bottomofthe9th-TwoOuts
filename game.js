@@ -28,9 +28,9 @@
   }
   addEventListener('resize', resize); resize();
 
-  function ballHome() { return { x: W / 2, y: H * 0.83, r: Math.max(28, Math.min(W, H) * 0.045) }; }
+  function ballHome() { return { x: W / 2, y: H * 0.83, r: Math.max(36, Math.min(W, H) * 0.058) }; }
   function zone() {
-    const w = Math.min(W * 0.28, 170), h = Math.min(H * 0.22, 190);
+    const w = Math.min(W * 0.22, 132), h = Math.min(H * 0.17, 148);
     return { x: W / 2 - w / 2, y: H * 0.31, w, h };
   }
 
@@ -80,18 +80,22 @@
       flashMessage('스와이프가 너무 짧습니다'); pointer = []; return;
     }
 
-    const power = Math.max(0, Math.min(1.3, swipeSpeed / 1.65));
-    const horizontalAim = Math.max(-1, Math.min(1, dx / Math.max(120, W * 0.35)));
-    const contactOffset = Math.max(-1, Math.min(1, (a.x - home.x) / home.r));
-    const curve = -contactOffset * (0.38 + power * 0.34);
+    const power = Math.max(0, Math.min(1.35, swipeSpeed / 1.28));
+    const horizontalAim = Math.max(-1.2, Math.min(1.2, dx / Math.max(82, W * 0.24)));
+    const contactOffset = Math.max(-1.15, Math.min(1.15, (a.x - home.x) / (home.r * 0.72)));
+    const gestureBend = pointer.length > 3
+      ? (pointer[pointer.length - 1].x - pointer[Math.floor(pointer.length * 0.45)].x) / Math.max(70, W * 0.2)
+      : 0;
+    const curve = Math.max(-1.15, Math.min(1.15, -contactOffset * (0.48 + power * 0.42) + gestureBend * 0.48));
 
     const z = zone();
-    const targetX = z.x + z.w / 2 + horizontalAim * z.w * 0.9 + curve * z.w * 0.7;
-    const targetY = z.y + z.h * (1.12 - power * 0.95);
+    const targetX = z.x + z.w / 2 + horizontalAim * z.w * 0.92 + curve * z.w * 0.32;
+    const targetY = z.y + z.h * (1.18 - power * 0.98);
 
     pitch = {
-      t: 0, duration: 620, start: home,
-      control: { x: W / 2 + curve * W * 0.18, y: H * 0.54 },
+      t: 0, duration: Math.max(430, 690 - power * 155), start: home,
+      control1: { x: home.x + horizontalAim * W * 0.035, y: H * 0.67 },
+      control2: { x: targetX - curve * W * 0.26, y: H * 0.43 },
       end: { x: targetX, y: targetY }, power, curve,
       label: Math.abs(curve) < .12 ? '직구' : curve < 0 ? '좌 커브' : '우 커브'
     };
@@ -136,9 +140,12 @@
 
   function flashMessage(text) { flash = text; flashUntil = performance.now() + 650; }
 
-  function bezier(a, c, b, t) {
+  function cubicBezier(a, c1, c2, b, t) {
     const u = 1 - t;
-    return { x: u*u*a.x + 2*u*t*c.x + t*t*b.x, y: u*u*a.y + 2*u*t*c.y + t*t*b.y };
+    return {
+      x: u*u*u*a.x + 3*u*u*t*c1.x + 3*u*t*t*c2.x + t*t*t*b.x,
+      y: u*u*u*a.y + 3*u*u*t*c1.y + 3*u*t*t*c2.y + t*t*t*b.y
+    };
   }
 
   function drawField() {
@@ -211,9 +218,25 @@
     drawPointer();
 
     if (state==='pitching' && pitch) {
-      pitch.t += dt; const t=Math.min(1,pitch.t/pitch.duration); const e=1-Math.pow(1-t,2.4); const p=bezier(pitch.start,pitch.control,pitch.end,e);
-      const r=pitch.start.r*(1-e*.72); drawBall(p.x,p.y,r,e*12*pitch.curve);
-      if (t>=1) resolvePitch();
+      pitch.t += dt;
+      const t = Math.min(1, pitch.t / pitch.duration);
+      const e = 1 - Math.pow(1 - t, 2.15);
+
+      // 커브는 초반에는 직구처럼 보이다가 포수 앞에서 더 크게 휘도록 cubic Bézier로 계산합니다.
+      const trailSteps = 7;
+      for (let i = trailSteps; i >= 1; i--) {
+        const tt = Math.max(0, e - i * 0.022);
+        const tp = cubicBezier(pitch.start, pitch.control1, pitch.control2, pitch.end, tt);
+        const tr = pitch.start.r * (1 - tt * .74) * (1 - i * .055);
+        ctx.globalAlpha = Math.max(0.035, 0.2 - i * 0.022);
+        drawBall(tp.x, tp.y, tr, tt * 18 * pitch.curve);
+      }
+      ctx.globalAlpha = 1;
+
+      const p = cubicBezier(pitch.start, pitch.control1, pitch.control2, pitch.end, e);
+      const r = pitch.start.r * (1 - e * .74);
+      drawBall(p.x, p.y, r, e * 18 * pitch.curve);
+      if (t >= 1) resolvePitch();
     }
     drawFlash(); requestAnimationFrame(frame);
   }
