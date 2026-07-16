@@ -48,7 +48,7 @@
   function zone() {
     // 포수가 포함된 배경 이미지의 위치에 맞춘 작은 스트라이크존.
     const w = Math.min(W * 0.095, 68);
-    const h = Math.min(H * 0.048, 58);
+    const h = Math.min(H * 0.06, 58);
     return { x: W / 2 - w / 2, y: H * 0.445, w, h };
   }
 
@@ -129,7 +129,7 @@
 
     const z = zone();
     const targetX = z.x + z.w / 2 + horizontalAim * z.w * 1.8 + curve * z.w * 0.62;
-    const targetY = z.y + z.h * (1.55 - power * 1.25);
+    const targetY = z.y + z.h * (1.8 - power * 1.8);
 
     pitch = {
       t: 0,
