@@ -10,9 +10,17 @@
   const countEl = document.getElementById('count');
   const pitchInfo = document.getElementById('pitchInfo');
 
-  let W = innerWidth, H = innerHeight, DPR = Math.min(devicePixelRatio || 1, 2);
+  const backgroundImage = new Image();
+  backgroundImage.src = 'assets/background/stadium_bg.png';
+  const ballImage = new Image();
+  ballImage.src = 'assets/balls/baseball.png';
+
+  let W = innerWidth;
+  let H = innerHeight;
+  let DPR = Math.min(devicePixelRatio || 1, 2);
   let state = 'menu';
-  let balls = 0, strikes = 0;
+  let balls = 0;
+  let strikes = 0;
   let dragging = false;
   let pointer = [];
   let pitch = null;
@@ -21,119 +29,206 @@
   let lastTime = performance.now();
 
   function resize() {
-    W = innerWidth; H = innerHeight; DPR = Math.min(devicePixelRatio || 1, 2);
-    canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
-    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    W = innerWidth;
+    H = innerHeight;
+    DPR = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    canvas.style.width = `${W}px`;
+    canvas.style.height = `${H}px`;
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   }
-  addEventListener('resize', resize); resize();
+  addEventListener('resize', resize);
+  resize();
 
-  function ballHome() { return { x: W / 2, y: H * 0.83, r: Math.max(36, Math.min(W, H) * 0.058) }; }
+  function ballHome() {
+    return { x: W / 2, y: H * 0.82, r: Math.max(42, Math.min(W, H) * 0.068) };
+  }
+
   function zone() {
-    // v3: 기존 스트라이크존의 가로·세로를 각각 2/3로 축소합니다.
-    const scale = 2 / 3;
-    const w = Math.min(W * 0.22, 132) * scale;
-    const h = Math.min(H * 0.17, 148) * scale;
-    return { x: W / 2 - w / 2, y: H * 0.31, w, h };
+    // 포수가 포함된 배경 이미지의 위치에 맞춘 작은 스트라이크존.
+    const w = Math.min(W * 0.095, 68);
+    const h = Math.min(H * 0.048, 58);
+    return { x: W / 2 - w / 2, y: H * 0.445, w, h };
   }
 
   function resetGame() {
-    balls = 0; strikes = 0; pitch = null; pointer = []; dragging = false;
-    state = 'ready'; result.classList.add('hidden'); message.classList.add('hidden');
-    updateCount(); pitchInfo.textContent = '공의 왼쪽·오른쪽을 긁으면 반대 방향으로 휩니다';
+    balls = 0;
+    strikes = 0;
+    pitch = null;
+    pointer = [];
+    dragging = false;
+    state = 'ready';
+    result.classList.add('hidden');
+    message.classList.add('hidden');
+    updateCount();
+    pitchInfo.textContent = '공의 좌우를 긁으면 반대 방향으로 휩니다';
   }
 
-  function updateCount() { countEl.textContent = `B ${balls} · S ${strikes}`; }
+  function updateCount() {
+    countEl.textContent = `B ${balls} · S ${strikes}`;
+  }
 
   function getPos(e) {
-    const r = canvas.getBoundingClientRect();
-    return { x: e.clientX - r.left, y: e.clientY - r.top, t: performance.now() };
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top, t: performance.now() };
   }
 
-  canvas.addEventListener('pointerdown', e => {
+  canvas.addEventListener('pointerdown', (e) => {
     if (state !== 'ready') return;
-    const p = getPos(e), b = ballHome();
-    if (Math.hypot(p.x - b.x, p.y - b.y) <= b.r * 1.7) {
-      dragging = true; pointer = [p]; canvas.setPointerCapture(e.pointerId);
+    const p = getPos(e);
+    const b = ballHome();
+    if (Math.hypot(p.x - b.x, p.y - b.y) <= b.r * 1.75) {
+      dragging = true;
+      pointer = [p];
+      canvas.setPointerCapture(e.pointerId);
     }
   });
 
-  canvas.addEventListener('pointermove', e => {
+  canvas.addEventListener('pointermove', (e) => {
     if (!dragging) return;
     pointer.push(getPos(e));
-    if (pointer.length > 24) pointer.shift();
+    if (pointer.length > 30) pointer.shift();
   });
 
-  canvas.addEventListener('pointerup', e => {
+  canvas.addEventListener('pointerup', (e) => {
     if (!dragging || state !== 'ready') return;
-    dragging = false; pointer.push(getPos(e));
+    dragging = false;
+    pointer.push(getPos(e));
     throwPitch();
   });
-  canvas.addEventListener('pointercancel', () => { dragging = false; pointer = []; });
+
+  canvas.addEventListener('pointercancel', () => {
+    dragging = false;
+    pointer = [];
+  });
 
   function throwPitch() {
     if (pointer.length < 2) return;
-    const a = pointer[0], b = pointer[pointer.length - 1];
-    const dx = b.x - a.x, dy = b.y - a.y;
-    const dist = Math.hypot(dx, dy), dt = Math.max(70, b.t - a.t);
+    const a = pointer[0];
+    const b = pointer[pointer.length - 1];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const dist = Math.hypot(dx, dy);
+    const dt = Math.max(55, b.t - a.t);
     const swipeSpeed = dist / dt;
     const home = ballHome();
 
-    if (dy > -35 || dist < 45) {
-      flashMessage('스와이프가 너무 짧습니다'); pointer = []; return;
+    if (dy > -30 || dist < 38) {
+      flashMessage('스와이프가 너무 짧습니다');
+      pointer = [];
+      return;
     }
 
-    const power = Math.max(0, Math.min(1.35, swipeSpeed / 1.28));
-    const horizontalAim = Math.max(-1.2, Math.min(1.2, dx / Math.max(82, W * 0.24)));
-    const contactOffset = Math.max(-1.15, Math.min(1.15, (a.x - home.x) / (home.r * 0.72)));
-    const gestureBend = pointer.length > 3
-      ? (pointer[pointer.length - 1].x - pointer[Math.floor(pointer.length * 0.45)].x) / Math.max(70, W * 0.2)
-      : 0;
-    const curve = Math.max(-1.15, Math.min(1.15, -contactOffset * (0.48 + power * 0.42) + gestureBend * 0.48));
+    const power = clamp(swipeSpeed / 1.18, 0, 1.4);
+    const horizontalAim = clamp(dx / Math.max(75, W * 0.21), -1.25, 1.25);
+    const contactOffset = clamp((a.x - home.x) / (home.r * 0.7), -1.2, 1.2);
+    const mid = pointer[Math.floor(pointer.length * 0.45)] || a;
+    const gestureBend = (b.x - mid.x) / Math.max(65, W * 0.18);
+    const curve = clamp(-contactOffset * (0.52 + power * 0.46) + gestureBend * 0.55, -1.25, 1.25);
 
     const z = zone();
-    const targetX = z.x + z.w / 2 + horizontalAim * z.w * 0.92 + curve * z.w * 0.32;
-    const targetY = z.y + z.h * (1.18 - power * 0.98);
+    const targetX = z.x + z.w / 2 + horizontalAim * z.w * 1.8 + curve * z.w * 0.62;
+    const targetY = z.y + z.h * (1.55 - power * 1.25);
 
     pitch = {
-      t: 0, duration: Math.max(430, 690 - power * 155), start: home,
+      t: 0,
+      duration: Math.max(410, 680 - power * 170),
+      start: home,
       control1: { x: home.x + horizontalAim * W * 0.035, y: H * 0.67 },
-      control2: { x: targetX - curve * W * 0.26, y: H * 0.43 },
-      end: { x: targetX, y: targetY }, power, curve,
-      label: Math.abs(curve) < .12 ? '직구' : curve < 0 ? '좌 커브' : '우 커브'
+      control2: { x: targetX - curve * W * 0.28, y: H * 0.52 },
+      end: { x: targetX, y: targetY },
+      power,
+      curve,
+      label: Math.abs(curve) < 0.12 ? '직구' : curve < 0 ? '좌 커브' : '우 커브'
     };
-    state = 'pitching'; pointer = [];
-    pitchInfo.textContent = `${pitch.label} · 구속 ${Math.round(118 + power * 34)} km/h`;
+
+    state = 'pitching';
+    pointer = [];
+    pitchInfo.textContent = `${pitch.label} · ${Math.round(116 + power * 36)} km/h`;
+  }
+
+  function circleTouchesRect(cx, cy, r, rect) {
+    const nearestX = clamp(cx, rect.x, rect.x + rect.w);
+    const nearestY = clamp(cy, rect.y, rect.y + rect.h);
+    const dx = cx - nearestX;
+    const dy = cy - nearestY;
+    return dx * dx + dy * dy <= r * r;
+  }
+
+  function circleFullyInsideRect(cx, cy, r, rect) {
+    return cx - r >= rect.x && cx + r <= rect.x + rect.w &&
+      cy - r >= rect.y && cy + r <= rect.y + rect.h;
+  }
+
+  function estimateInsideRatio(cx, cy, r, rect) {
+    // 공 원 내부의 균일한 표본점을 검사해 스트라이크존과 겹친 비율을 구합니다.
+    const grid = 31;
+    let circlePoints = 0;
+    let insidePoints = 0;
+    for (let iy = 0; iy < grid; iy++) {
+      const py = cy - r + ((iy + 0.5) / grid) * r * 2;
+      for (let ix = 0; ix < grid; ix++) {
+        const px = cx - r + ((ix + 0.5) / grid) * r * 2;
+        const dx = px - cx;
+        const dy = py - cy;
+        if (dx * dx + dy * dy > r * r) continue;
+        circlePoints++;
+        if (px >= rect.x && px <= rect.x + rect.w && py >= rect.y && py <= rect.y + rect.h) {
+          insidePoints++;
+        }
+      }
+    }
+    return circlePoints ? insidePoints / circlePoints : 0;
   }
 
   function resolvePitch() {
-    const z = zone(), x = pitch.end.x, y = pitch.end.y;
-    const inZone = x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h;
-    const tooLow = y > z.y + z.h;
-    const tooHigh = y < z.y;
+    const z = zone();
+    const finalRadius = pitch.start.r * 0.26;
+    const x = pitch.end.x;
+    const y = pitch.end.y;
+    const touches = circleTouchesRect(x, y, finalRadius, z);
 
-    if (inZone) {
-      const centerDist = Math.hypot((x - (z.x + z.w / 2)) / z.w, (y - (z.y + z.h / 2)) / z.h);
-      const swingChance = 0.5 + pitch.power * .22 - Math.abs(pitch.curve) * .1;
-      const swung = Math.random() < swingChance;
-      const contactChance = Math.max(.08, .56 - Math.abs(pitch.curve) * .34 - centerDist * .2);
-      if (swung && Math.random() < contactChance) {
-        endGame(false, '끝내기 안타', '타자가 변화에 적응했습니다. 코스와 구종을 섞어 보세요.');
+    if (touches) {
+      const fullyInside = circleFullyInsideRect(x, y, finalRadius, z);
+      const overlap = fullyInside ? 1 : estimateInsideRatio(x, y, finalRadius, z);
+      // 살짝 걸치면 10%, 완전히 들어가면 100%. 중간은 겹친 비율에 따라 선형 증가.
+      const hitRate = fullyInside ? 1 : 0.1 + 0.9 * clamp(overlap, 0, 1);
+      const hit = Math.random() < hitRate;
+
+      if (hit) {
+        flashMessage(`안타! ${Math.round(hitRate * 100)}%`);
+        endGame(false, '끝내기 안타', `스트라이크존과 겹친 정도에 따른 ${Math.round(hitRate * 100)}% 확률로 타격에 성공했습니다.`);
         return;
       }
+
       strikes++;
-      flashMessage(swung ? '헛스윙!' : '스트라이크!');
-      if (strikes >= 3) { endGame(true, '삼진 아웃!', '마지막 타자를 잡고 경기를 끝냈습니다.'); return; }
+      flashMessage(`헛스윙! ${Math.round((1 - hitRate) * 100)}%`);
+      if (strikes >= 3) {
+        endGame(true, '삼진 아웃!', '마지막 타자를 헛스윙 삼진으로 잡았습니다.');
+        return;
+      }
     } else {
       balls++;
-      flashMessage(tooLow ? '원바운드 볼' : tooHigh ? '높은 볼' : '볼');
-      if (balls >= 4) { endGame(false, '밀어내기 볼넷', '힘과 방향을 조금 더 안정적으로 맞춰 보세요.'); return; }
+      const tooLow = y - finalRadius > z.y + z.h;
+      const tooHigh = y + finalRadius < z.y;
+      flashMessage(tooLow ? '낮은 볼' : tooHigh ? '높은 볼' : '볼');
+      if (balls >= 4) {
+        endGame(false, '밀어내기 볼넷', '공이 스트라이크존에 전혀 닿지 않았습니다.');
+        return;
+      }
     }
-    updateCount(); state = 'cooldown'; setTimeout(() => { if (state === 'cooldown') state = 'ready'; }, 650);
+
+    updateCount();
+    state = 'cooldown';
+    setTimeout(() => {
+      if (state === 'cooldown') state = 'ready';
+    }, 700);
   }
 
   function endGame(win, title, text) {
-    state = 'ended'; updateCount();
+    state = 'ended';
+    updateCount();
     setTimeout(() => {
       resultTitle.textContent = title;
       resultText.textContent = text;
@@ -141,107 +236,130 @@
     }, 500);
   }
 
-  function flashMessage(text) { flash = text; flashUntil = performance.now() + 650; }
+  function flashMessage(text) {
+    flash = text;
+    flashUntil = performance.now() + 750;
+  }
+
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
 
   function cubicBezier(a, c1, c2, b, t) {
     const u = 1 - t;
     return {
-      x: u*u*u*a.x + 3*u*u*t*c1.x + 3*u*t*t*c2.x + t*t*t*b.x,
-      y: u*u*u*a.y + 3*u*u*t*c1.y + 3*u*t*t*c2.y + t*t*t*b.y
+      x: u * u * u * a.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * b.x,
+      y: u * u * u * a.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * b.y
     };
   }
 
-  function drawField() {
+  function drawBackgroundCover() {
     ctx.clearRect(0, 0, W, H);
-    const sky = ctx.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, '#07130d'); sky.addColorStop(.52, '#173522'); sky.addColorStop(1, '#09100c');
-    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
-
-    ctx.fillStyle = '#102a19'; ctx.beginPath();
-    ctx.moveTo(0, H * .48); ctx.quadraticCurveTo(W/2, H*.36, W, H*.48); ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.fill();
-
-    ctx.fillStyle = '#8d6b48';
-    ctx.beginPath(); ctx.moveTo(W*.17, H); ctx.lineTo(W*.42, H*.48); ctx.lineTo(W*.58, H*.48); ctx.lineTo(W*.83, H); ctx.fill();
-
-    ctx.fillStyle = '#1f4b2e';
-    ctx.beginPath(); ctx.ellipse(W/2, H*.56, W*.24, H*.12, 0, 0, Math.PI*2); ctx.fill();
-
-    drawBatter(); drawCatcher(); drawZone();
+    if (!backgroundImage.complete || !backgroundImage.naturalWidth) {
+      ctx.fillStyle = '#030813';
+      ctx.fillRect(0, 0, W, H);
+      return;
+    }
+    const iw = backgroundImage.naturalWidth;
+    const ih = backgroundImage.naturalHeight;
+    const scale = Math.max(W / iw, H / ih);
+    const dw = iw * scale;
+    const dh = ih * scale;
+    ctx.drawImage(backgroundImage, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    const shade = ctx.createLinearGradient(0, 0, 0, H);
+    shade.addColorStop(0, 'rgba(0,0,0,.08)');
+    shade.addColorStop(0.65, 'rgba(0,0,0,0)');
+    shade.addColorStop(1, 'rgba(0,0,0,.2)');
+    ctx.fillStyle = shade;
+    ctx.fillRect(0, 0, W, H);
   }
 
   function drawZone() {
     const z = zone();
-    ctx.strokeStyle = '#ffffffaa'; ctx.lineWidth = 2; ctx.setLineDash([7, 7]); ctx.strokeRect(z.x, z.y, z.w, z.h); ctx.setLineDash([]);
-    ctx.strokeStyle = '#ffffff22'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(z.x+z.w/3,z.y); ctx.lineTo(z.x+z.w/3,z.y+z.h); ctx.moveTo(z.x+2*z.w/3,z.y); ctx.lineTo(z.x+2*z.w/3,z.y+z.h); ctx.moveTo(z.x,z.y+z.h/3); ctx.lineTo(z.x+z.w,z.y+z.h/3); ctx.moveTo(z.x,z.y+2*z.h/3); ctx.lineTo(z.x+z.w,z.y+2*z.h/3); ctx.stroke();
+    ctx.strokeStyle = '#ffffffd0';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 5]);
+    ctx.strokeRect(z.x, z.y, z.w, z.h);
+    ctx.setLineDash([]);
   }
 
-  function drawBatter() {
-    const x = W*.68, y = H*.34, s = Math.min(W,H)*.055;
-    ctx.strokeStyle = '#111'; ctx.lineWidth = Math.max(7, s*.15); ctx.lineCap='round';
-    ctx.beginPath(); ctx.arc(x, y, s*.32, 0, Math.PI*2); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(x,y+s*.35); ctx.lineTo(x-s*.08,y+s*1.4); ctx.moveTo(x-s*.05,y+s*.8); ctx.lineTo(x-s*.65,y+s*1.25); ctx.moveTo(x-s*.02,y+s*.75); ctx.lineTo(x+s*.55,y+s*1.3); ctx.moveTo(x-s*.02,y+s*.55); ctx.lineTo(x-s*.58,y+s*.18); ctx.stroke();
-    ctx.strokeStyle='#c39a6b'; ctx.lineWidth=Math.max(5,s*.1); ctx.beginPath(); ctx.moveTo(x-s*.55,y+s*.18); ctx.lineTo(x-s*.9,y-s*.65); ctx.stroke();
-  }
-
-  function drawCatcher() {
-    const x=W/2, y=H*.48, s=Math.min(W,H)*.045;
-    ctx.fillStyle='#101417'; ctx.beginPath(); ctx.arc(x,y,s*.35,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle='#15191c'; ctx.lineWidth=Math.max(8,s*.2); ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(x,y+s*.3); ctx.lineTo(x,y+s*1.2); ctx.moveTo(x,y+s*.72); ctx.lineTo(x-s*.65,y+s*1.1); ctx.moveTo(x,y+s*.72); ctx.lineTo(x+s*.65,y+s*1.1); ctx.stroke();
-  }
-
-  function drawBall(x,y,r,rotation=0) {
-    ctx.save(); ctx.translate(x,y); ctx.rotate(rotation);
-    ctx.fillStyle='#f4f0df'; ctx.shadowColor='#0008'; ctx.shadowBlur=12; ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0;
-    ctx.strokeStyle='#b44739'; ctx.lineWidth=Math.max(1.5,r*.08);
-    ctx.beginPath(); ctx.arc(-r*.16,0,r*.62,-1.1,1.1); ctx.stroke(); ctx.beginPath(); ctx.arc(r*.16,0,r*.62,2.04,4.24); ctx.stroke();
+  function drawBall(x, y, r, rotation = 0, alpha = 1) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(x, y);
+    ctx.rotate(rotation);
+    if (ballImage.complete && ballImage.naturalWidth) {
+      ctx.drawImage(ballImage, -r, -r, r * 2, r * 2);
+    } else {
+      ctx.fillStyle = '#f3eee3';
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
   }
 
   function drawReadyBall() {
-    const b=ballHome(); drawBall(b.x,b.y,b.r);
-    ctx.strokeStyle='#ffffff44'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(b.x,b.y,b.r*1.45,0,Math.PI*2); ctx.stroke();
-    ctx.fillStyle='#ffffffaa'; ctx.font='600 13px system-ui'; ctx.textAlign='center'; ctx.fillText('위로 스와이프',b.x,b.y+b.r*2.05);
+    const b = ballHome();
+    drawBall(b.x, b.y, b.r);
+    ctx.strokeStyle = '#ffffff55';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r * 1.35, 0, Math.PI * 2);
+    ctx.stroke();
   }
 
   function drawPointer() {
-    if (!dragging || pointer.length<2) return;
-    ctx.strokeStyle='#ffffff99'; ctx.lineWidth=5; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(pointer[0].x,pointer[0].y); for(const p of pointer.slice(1)) ctx.lineTo(p.x,p.y); ctx.stroke();
+    if (!dragging || pointer.length < 2) return;
+    ctx.strokeStyle = '#ffffffaa';
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(pointer[0].x, pointer[0].y);
+    for (const p of pointer.slice(1)) ctx.lineTo(p.x, p.y);
+    ctx.stroke();
   }
 
   function drawFlash() {
-    if (performance.now()>flashUntil) return;
-    ctx.fillStyle='#fff'; ctx.font=`900 ${Math.min(42,W*.1)}px system-ui`; ctx.textAlign='center'; ctx.shadowColor='#000'; ctx.shadowBlur=16; ctx.fillText(flash,W/2,H*.22); ctx.shadowBlur=0;
+    if (performance.now() > flashUntil) return;
+    ctx.fillStyle = '#fff';
+    ctx.font = `900 ${Math.min(42, W * 0.1)}px system-ui`;
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#000';
+    ctx.shadowBlur = 16;
+    ctx.fillText(flash, W / 2, H * 0.22);
+    ctx.shadowBlur = 0;
   }
 
   function frame(now) {
-    const dt=Math.min(40,now-lastTime); lastTime=now;
-    drawField();
-    if (state==='ready' || state==='cooldown') drawReadyBall();
+    const dt = Math.min(40, now - lastTime);
+    lastTime = now;
+    drawBackgroundCover();
+    drawZone();
+
+    if (state === 'ready' || state === 'cooldown') drawReadyBall();
     drawPointer();
 
-    if (state==='pitching' && pitch) {
+    if (state === 'pitching' && pitch) {
       pitch.t += dt;
       const t = Math.min(1, pitch.t / pitch.duration);
-      const e = 1 - Math.pow(1 - t, 2.15);
+      const eased = 1 - Math.pow(1 - t, 2.15);
 
-      // 커브는 초반에는 직구처럼 보이다가 포수 앞에서 더 크게 휘도록 cubic Bézier로 계산합니다.
-      const trailSteps = 7;
-      for (let i = trailSteps; i >= 1; i--) {
-        const tt = Math.max(0, e - i * 0.022);
+      for (let i = 7; i >= 1; i--) {
+        const tt = Math.max(0, eased - i * 0.022);
         const tp = cubicBezier(pitch.start, pitch.control1, pitch.control2, pitch.end, tt);
-        const tr = pitch.start.r * (1 - tt * .74) * (1 - i * .055);
-        ctx.globalAlpha = Math.max(0.035, 0.2 - i * 0.022);
-        drawBall(tp.x, tp.y, tr, tt * 18 * pitch.curve);
+        const tr = pitch.start.r * (1 - tt * 0.74) * (1 - i * 0.055);
+        drawBall(tp.x, tp.y, tr, tt * 18 * pitch.curve, Math.max(0.035, 0.2 - i * 0.022));
       }
-      ctx.globalAlpha = 1;
 
-      const p = cubicBezier(pitch.start, pitch.control1, pitch.control2, pitch.end, e);
-      const r = pitch.start.r * (1 - e * .74);
-      drawBall(p.x, p.y, r, e * 18 * pitch.curve);
+      const p = cubicBezier(pitch.start, pitch.control1, pitch.control2, pitch.end, eased);
+      const r = pitch.start.r * (1 - eased * 0.74);
+      drawBall(p.x, p.y, r, eased * 18 * pitch.curve);
       if (t >= 1) resolvePitch();
     }
-    drawFlash(); requestAnimationFrame(frame);
+
+    drawFlash();
+    requestAnimationFrame(frame);
   }
 
   startBtn.addEventListener('click', resetGame);
