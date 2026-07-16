@@ -129,7 +129,7 @@
 
     const z = zone();
     const targetX = z.x + z.w / 2 + horizontalAim * z.w * 1.8 + curve * z.w * 0.62;
-    const targetY = z.y + z.h * (2.3 - power * 2.3);
+    const targetY = z.y + z.h * (3 - power * 1.25);
 
     pitch = {
       t: 0,
