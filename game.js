@@ -30,7 +30,10 @@
 
   function ballHome() { return { x: W / 2, y: H * 0.83, r: Math.max(36, Math.min(W, H) * 0.058) }; }
   function zone() {
-    const w = Math.min(W * 0.22, 132), h = Math.min(H * 0.17, 148);
+    // v3: 기존 스트라이크존의 가로·세로를 각각 2/3로 축소합니다.
+    const scale = 2 / 3;
+    const w = Math.min(W * 0.22, 132) * scale;
+    const h = Math.min(H * 0.17, 148) * scale;
     return { x: W / 2 - w / 2, y: H * 0.31, w, h };
   }
 
