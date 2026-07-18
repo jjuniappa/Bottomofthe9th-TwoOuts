@@ -328,15 +328,6 @@ function frame(now) {
 
   drawBackgroundCover();
 
-  // ===== 스트라이크존 테두리 표시 =====
-  const z = zone();
-
-  ctx.save();
-  ctx.strokeStyle = '#ff0000';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(z.x, z.y, z.w, z.h);
-  ctx.restore();
-
   if (state === 'ready' || state === 'cooldown')
     drawReadyBall();
 
