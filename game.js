@@ -254,6 +254,14 @@
   }
 
   function drawBackgroundCover() {
+    // ===== 스트라이크존 표시 =====
+const z = zone();
+
+ctx.save();
+ctx.strokeStyle = '#ff0000';   // 빨간색
+ctx.lineWidth = 2;
+ctx.strokeRect(z.x, z.y, z.w, z.h);
+ctx.restore();
     ctx.clearRect(0, 0, W, H);
     if (!backgroundImage.complete || !backgroundImage.naturalWidth) {
       ctx.fillStyle = '#030813';
@@ -273,14 +281,7 @@
     ctx.fillStyle = shade;
     ctx.fillRect(0, 0, W, H);
   }
-// ===== 스트라이크존 표시 =====
-const z = zone();
 
-ctx.save();
-ctx.strokeStyle = '#ff0000';   // 빨간색
-ctx.lineWidth = 2;
-ctx.strokeRect(z.x, z.y, z.w, z.h);
-ctx.restore();
   function drawBall(x, y, r, rotation = 0, alpha = 1) {
     ctx.save();
     ctx.globalAlpha = alpha;
