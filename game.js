@@ -468,8 +468,8 @@
     }
     const z = zone();
     const batterHeight = Math.min(
-      H * 0.20,
-      220
+      H * 0.21,
+      230
     );
     const imageRatio =
       batterImage.naturalWidth /
@@ -477,7 +477,7 @@
     const batterWidth =
       batterHeight * imageRatio;
     // 위치 조정
-    const offsetX = -5;
+    const offsetX = -15;
     const offsetY = -5;
     const x =
       z.x +
