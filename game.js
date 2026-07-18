@@ -49,7 +49,7 @@
     // 포수가 포함된 배경 이미지의 위치에 맞춘 작은 스트라이크존.
     const w = Math.min(W * 0.095, 68);
     const h = Math.min(H * 0.055, 58);
-    return { x: W / 2 - w / 2, y: H * 0.42, w, h };
+    return { x: W / 2 - w / 2, y: H * 0.32, w, h };
   }
 
   function resetGame() {
