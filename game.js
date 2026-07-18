@@ -53,12 +53,12 @@
   const hitResultImage = new Image();
 hitResultImage.src =
   window.GAME_ASSETS?.hitResult ||
-  './assets/039EBF99-A7C6-4B1B-A9B1-318387AB4239.png';
+  './assets/720E067A-9112-4DA0-B360-531CB984E21E.png';
 
 const strikeoutResultImage = new Image();
 strikeoutResultImage.src =
   window.GAME_ASSETS?.strikeoutResult ||
-  './assets/BEF132F5-989D-4E65-84B1-C324B1C890BE.png';
+  './assets/B61EF198-8F8B-416F-9B15-86D02009A1B5.png';
 
   // =========================
 
