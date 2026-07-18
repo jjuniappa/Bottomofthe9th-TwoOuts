@@ -322,35 +322,66 @@
     ctx.shadowBlur = 0;
   }
 
-  function frame(now) {
-    const dt = Math.min(40, now - lastTime);
-    lastTime = now;
-    drawBackgroundCover();
+function frame(now) {
+  const dt = Math.min(40, now - lastTime);
+  lastTime = now;
 
-    if (state === 'ready' || state === 'cooldown') drawReadyBall();
-    drawPointer();
+  drawBackgroundCover();
 
-    if (state === 'pitching' && pitch) {
-      pitch.t += dt;
-      const t = Math.min(1, pitch.t / pitch.duration);
-      const eased = 1 - Math.pow(1 - t, 2.15);
+  // ===== 스트라이크존 테두리 표시 =====
+  const z = zone();
 
-      for (let i = 7; i >= 1; i--) {
-        const tt = Math.max(0, eased - i * 0.022);
-        const tp = cubicBezier(pitch.start, pitch.control1, pitch.control2, pitch.end, tt);
-        const tr = pitch.start.r * (1 - tt * 0.82) * (1 - i * 0.055);
-        drawBall(tp.x, tp.y, tr, tt * 18 * pitch.curve, Math.max(0.035, 0.2 - i * 0.022));
-      }
+  ctx.save();
+  ctx.strokeStyle = '#ff0000';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(z.x, z.y, z.w, z.h);
+  ctx.restore();
 
-      const p = cubicBezier(pitch.start, pitch.control1, pitch.control2, pitch.end, eased);
-      const r = pitch.start.r * (1 - eased * 0.82);
-      drawBall(p.x, p.y, r, eased * 18 * pitch.curve);
-      if (t >= 1) resolvePitch();
+  if (state === 'ready' || state === 'cooldown')
+    drawReadyBall();
+
+  drawPointer();
+
+  if (state === 'pitching' && pitch) {
+    pitch.t += dt;
+    const t = Math.min(1, pitch.t / pitch.duration);
+    const eased = 1 - Math.pow(1 - t, 2.15);
+
+    for (let i = 7; i >= 1; i--) {
+      const tt = Math.max(0, eased - i * 0.022);
+      const tp = cubicBezier(
+        pitch.start,
+        pitch.control1,
+        pitch.control2,
+        pitch.end,
+        tt
+      );
+      const tr = pitch.start.r * (1 - tt * 0.82) * (1 - i * 0.055);
+      drawBall(
+        tp.x,
+        tp.y,
+        tr,
+        tt * 18 * pitch.curve,
+        Math.max(0.035, 0.2 - i * 0.022)
+      );
     }
 
-    drawFlash();
-    requestAnimationFrame(frame);
+    const p = cubicBezier(
+      pitch.start,
+      pitch.control1,
+      pitch.control2,
+      pitch.end,
+      eased
+    );
+    const r = pitch.start.r * (1 - eased * 0.82);
+    drawBall(p.x, p.y, r, eased * 18 * pitch.curve);
+
+    if (t >= 1) resolvePitch();
   }
+
+  drawFlash();
+  requestAnimationFrame(frame);
+}
 
   startBtn.addEventListener('click', resetGame);
   restartBtn.addEventListener('click', resetGame);
