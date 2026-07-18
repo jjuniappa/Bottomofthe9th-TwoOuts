@@ -51,20 +51,14 @@
     './assets/2AB96013-F456-4795-AE8D-DDD6E5845C56.png';
 
   const hitResultImage = new Image();
+hitResultImage.src =
+  window.GAME_ASSETS?.hitResult ||
+  './assets/039EBF99-A7C6-4B1B-A9B1-318387AB4239.png';
 
-  hitResultImage.src =
-
-    window.GAME_ASSETS?.hitResult ||
-
-    './assets/039EBF99-A7C6-4B1B-A9B1-318387AB4239.png';
-
-  const strikeoutResultImage = new Image();
-
-  strikeoutResultImage.src =
-
-    window.GAME_ASSETS?.strikeoutResult ||
-
-    './assets/BEF132F5-989D-4E65-84B1-C324B1C890BE.png';
+const strikeoutResultImage = new Image();
+strikeoutResultImage.src =
+  window.GAME_ASSETS?.strikeoutResult ||
+  './assets/BEF132F5-989D-4E65-84B1-C324B1C890BE.png';
 
   // =========================
 
