@@ -1,8 +1,3 @@
-아래 코드로 기존 JavaScript 전체를 통째로 교체하시면 됩니다.
-
-타자 이미지 파일 경로는 다음 기준입니다.
-
-./assets/2AB96013-F456-4795-AE8D-DDD6E5845C56.png
 (() => {
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
