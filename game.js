@@ -1,713 +1,2247 @@
 (() => {
+
   const canvas = document.getElementById('game');
+
   const ctx = canvas.getContext('2d');
+
   const startBtn = document.getElementById('startBtn');
+
   const restartBtn = document.getElementById('restartBtn');
+
   const message = document.getElementById('message');
+
   const result = document.getElementById('result');
+
   const resultTitle = document.getElementById('resultTitle');
+
   const resultText = document.getElementById('resultText');
+
   const countEl = document.getElementById('count');
+
   const pitchInfo = document.getElementById('pitchInfo');
+
   // =========================
+
   // 이미지 불러오기
+
   // =========================
+
   const backgroundImage = new Image();
+
   backgroundImage.src =
+
     window.GAME_ASSETS?.background ||
+
     './assets/background/stadium_bg.png';
+
   const ballImage = new Image();
+
   ballImage.src =
+
     window.GAME_ASSETS?.baseball ||
+
     './assets/balls/baseball.png';
+
   const batterImage = new Image();
+
   batterImage.src =
+
     window.GAME_ASSETS?.batter ||
+
     './assets/2AB96013-F456-4795-AE8D-DDD6E5845C56.png';
+
+  const hitResultImage = new Image();
+
+  hitResultImage.src =
+
+    window.GAME_ASSETS?.hitResult ||
+
+    './assets/039EBF99-A7C6-4B1B-A9B1-318387AB4239.png';
+
+  const strikeoutResultImage = new Image();
+
+  strikeoutResultImage.src =
+
+    window.GAME_ASSETS?.strikeoutResult ||
+
+    './assets/BEF132F5-989D-4E65-84B1-C324B1C890BE.png';
+
+  // =========================
+
+  // 게임 상태값
+
+  // =========================
+
   let W = innerWidth;
+
   let H = innerHeight;
+
   let DPR = Math.min(devicePixelRatio || 1, 2);
+
   let state = 'menu';
+
   let balls = 0;
+
   let strikes = 0;
+
   let dragging = false;
+
   let pointer = [];
+
   let pitch = null;
+
   let flash = '';
+
   let flashUntil = 0;
+
   let lastTime = performance.now();
+
+  // 결과 이미지
+
+  let resultSceneImage = null;
+
+  let resultSceneStartedAt = 0;
+
+  // 결과 이미지 표시 시간 2초
+
+  const RESULT_SCENE_DURATION = 2000;
+
   // =========================
+
   // 화면 크기
+
   // =========================
+
   function resize() {
+
     W = innerWidth;
+
     H = innerHeight;
+
     DPR = Math.min(devicePixelRatio || 1, 2);
+
     canvas.width = Math.round(W * DPR);
+
     canvas.height = Math.round(H * DPR);
+
     canvas.style.width = `${W}px`;
+
     canvas.style.height = `${H}px`;
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+    ctx.setTransform(
+
+      DPR,
+
+      0,
+
+      0,
+
+      DPR,
+
+      0,
+
+      0
+
+    );
+
   }
+
   addEventListener('resize', resize);
+
   resize();
+
   // =========================
+
   // 공 시작 위치
+
   // =========================
+
   function ballHome() {
+
     return {
+
       x: W / 2,
+
       y: H * 0.82,
-      r: Math.max(42, Math.min(W, H) * 0.068)
+
+      r: Math.max(
+
+        42,
+
+        Math.min(W, H) * 0.068
+
+      )
+
     };
+
   }
+
   // =========================
+
   // 스트라이크존
+
   // =========================
+
   function zone() {
-    const w = Math.min(W * 0.095, 68);
-    const h = Math.min(H * 0.055, 58);
+
+    const w = Math.min(
+
+      W * 0.095,
+
+      68
+
+    );
+
+    const h = Math.min(
+
+      H * 0.055,
+
+      58
+
+    );
+
     return {
+
       x: W / 2 - w / 2,
+
       y: H * 0.42,
+
       w,
+
       h
+
     };
+
   }
+
   // =========================
+
   // 게임 초기화
+
   // =========================
+
   function resetGame() {
+
     balls = 0;
+
     strikes = 0;
+
     pitch = null;
+
     pointer = [];
+
     dragging = false;
+
+    flash = '';
+
+    flashUntil = 0;
+
+    resultSceneImage = null;
+
+    resultSceneStartedAt = 0;
+
     state = 'ready';
+
     result.classList.add('hidden');
+
     message.classList.add('hidden');
+
     updateCount();
+
     pitchInfo.textContent =
+
       '공의 좌우를 긁으면 반대 방향으로 휩니다';
+
   }
+
   function updateCount() {
-    countEl.textContent = `B ${balls} · S ${strikes}`;
+
+    countEl.textContent =
+
+      `B ${balls} · S ${strikes}`;
+
   }
+
   // =========================
+
   // 포인터 위치
+
   // =========================
+
   function getPos(e) {
-    const rect = canvas.getBoundingClientRect();
+
+    const rect =
+
+      canvas.getBoundingClientRect();
+
     return {
+
       x: e.clientX - rect.left,
+
       y: e.clientY - rect.top,
+
       t: performance.now()
+
     };
+
   }
+
   // =========================
+
   // 터치 및 드래그
+
   // =========================
-  canvas.addEventListener('pointerdown', (e) => {
-    if (state !== 'ready') return;
-    const p = getPos(e);
-    const b = ballHome();
-    const distance = Math.hypot(
-      p.x - b.x,
-      p.y - b.y
-    );
-    if (distance <= b.r * 1.75) {
-      dragging = true;
-      pointer = [p];
-      canvas.setPointerCapture(e.pointerId);
-    }
-  });
-  canvas.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    pointer.push(getPos(e));
-    if (pointer.length > 30) {
-      pointer.shift();
-    }
-  });
-  canvas.addEventListener('pointerup', (e) => {
-    if (!dragging || state !== 'ready') return;
-    dragging = false;
-    pointer.push(getPos(e));
-    throwPitch();
-  });
-  canvas.addEventListener('pointercancel', () => {
-    dragging = false;
-    pointer = [];
-  });
-  // =========================
-  // 투구 계산
-  // =========================
-  function throwPitch() {
-    if (pointer.length < 2) return;
-    const a = pointer[0];
-    const b = pointer[pointer.length - 1];
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const dist = Math.hypot(dx, dy);
-    const dt = Math.max(55, b.t - a.t);
-    const swipeSpeed = dist / dt;
-    const home = ballHome();
-    if (dy > -30 || dist < 38) {
-      flashMessage('스와이프가 너무 짧습니다');
-      pointer = [];
-      return;
-    }
-    const power = clamp(
-      swipeSpeed / 1.18,
-      0,
-      1.4
-    );
-    const horizontalAim = clamp(
-      dx / Math.max(75, W * 0.21),
-      -1.25,
-      1.25
-    );
-    const contactOffset = clamp(
-      (a.x - home.x) / (home.r * 0.7),
-      -1.2,
-      1.2
-    );
-    const mid =
-      pointer[Math.floor(pointer.length * 0.45)] || a;
-    const gestureBend =
-      (b.x - mid.x) /
-      Math.max(65, W * 0.18);
-    const curve = clamp(
-      -contactOffset * (0.52 + power * 0.46) +
-        gestureBend * 0.55,
-      -1.25,
-      1.25
-    );
-    const z = zone();
-    const targetX =
-      z.x +
-      z.w / 2 +
-      horizontalAim * z.w * 1.8 +
-      curve * z.w * 0.62;
-    const targetY =
-      z.y +
-      z.h * (3 - power * 3);
-    pitch = {
-      t: 0,
-      duration: Math.max(
-        410,
-        680 - power * 170
-      ),
-      start: home,
-      control1: {
-        x: home.x + horizontalAim * W * 0.035,
-        y: H * 0.67
-      },
-      control2: {
-        x: targetX - curve * W * 0.28,
-        y: H * 0.52
-      },
-      end: {
-        x: targetX,
-        y: targetY
-      },
-      power,
-      curve,
-      label:
-        Math.abs(curve) < 0.12
-          ? '직구'
-          : curve < 0
-            ? '좌 커브'
-            : '우 커브'
-    };
-    state = 'pitching';
-    pointer = [];
-    pitchInfo.textContent =
-      `${pitch.label} · ${Math.round(116 + power * 36)} km/h`;
-  }
-  // =========================
-  // 판정 함수
-  // =========================
-  function circleTouchesRect(cx, cy, r, rect) {
-    const nearestX = clamp(
-      cx,
-      rect.x,
-      rect.x + rect.w
-    );
-    const nearestY = clamp(
-      cy,
-      rect.y,
-      rect.y + rect.h
-    );
-    const dx = cx - nearestX;
-    const dy = cy - nearestY;
-    return dx * dx + dy * dy <= r * r;
-  }
-  function circleFullyInsideRect(cx, cy, r, rect) {
-    return (
-      cx - r >= rect.x &&
-      cx + r <= rect.x + rect.w &&
-      cy - r >= rect.y &&
-      cy + r <= rect.y + rect.h
-    );
-  }
-  function estimateInsideRatio(cx, cy, r, rect) {
-    const grid = 31;
-    let circlePoints = 0;
-    let insidePoints = 0;
-    for (let iy = 0; iy < grid; iy++) {
-      const py =
-        cy -
-        r +
-        ((iy + 0.5) / grid) * r * 2;
-      for (let ix = 0; ix < grid; ix++) {
-        const px =
-          cx -
-          r +
-          ((ix + 0.5) / grid) * r * 2;
-        const dx = px - cx;
-        const dy = py - cy;
-        if (dx * dx + dy * dy > r * r) {
-          continue;
-        }
-        circlePoints++;
-        if (
-          px >= rect.x &&
-          px <= rect.x + rect.w &&
-          py >= rect.y &&
-          py <= rect.y + rect.h
-        ) {
-          insidePoints++;
-        }
-      }
-    }
-    return circlePoints
-      ? insidePoints / circlePoints
-      : 0;
-  }
-  function resolvePitch() {
-    const z = zone();
-    const finalRadius =
-      pitch.start.r * 0.18;
-    const x = pitch.end.x;
-    const y = pitch.end.y;
-    const touches = circleTouchesRect(
-      x,
-      y,
-      finalRadius,
-      z
-    );
-    if (touches) {
-      const fullyInside =
-        circleFullyInsideRect(
-          x,
-          y,
-          finalRadius,
-          z
-        );
-      const overlap = fullyInside
-        ? 1
-        : estimateInsideRatio(
-            x,
-            y,
-            finalRadius,
-            z
-          );
-      const hitRate = fullyInside
-        ? 1
-        : 0.1 + 0.9 * clamp(overlap, 0, 1);
-      const hit =
-        Math.random() < hitRate;
-      if (hit) {
-        flashMessage('안타!');
-        endGame(
-          false,
-          '안타',
-          '타자가 공을 받아쳤습니다.'
-        );
+
+  canvas.addEventListener(
+
+    'pointerdown',
+
+    (e) => {
+
+      if (state !== 'ready') {
+
         return;
+
       }
-      strikes++;
-      flashMessage('헛스윙!');
-      if (strikes >= 3) {
-        endGame(
-          true,
-          '삼진 아웃!',
-          '마지막 타자를 헛스윙 삼진으로 잡았습니다.'
+
+      const p = getPos(e);
+
+      const b = ballHome();
+
+      const distance = Math.hypot(
+
+        p.x - b.x,
+
+        p.y - b.y
+
+      );
+
+      if (distance <= b.r * 1.75) {
+
+        dragging = true;
+
+        pointer = [p];
+
+        canvas.setPointerCapture(
+
+          e.pointerId
+
         );
+
+      }
+
+    }
+
+  );
+
+  canvas.addEventListener(
+
+    'pointermove',
+
+    (e) => {
+
+      if (!dragging) {
+
         return;
+
       }
-    } else {
-      balls++;
-      const tooLow =
-        y - finalRadius > z.y + z.h;
-      const tooHigh =
-        y + finalRadius < z.y;
-      flashMessage(
-        tooLow
-          ? '낮은 볼'
-          : tooHigh
-            ? '높은 볼'
-            : '볼'
-      );
-      if (balls >= 4) {
-        endGame(
-          false,
-          '밀어내기 볼넷',
-          '공이 스트라이크존에 전혀 닿지 않았습니다.'
-        );
-        return;
+
+      pointer.push(getPos(e));
+
+      if (pointer.length > 30) {
+
+        pointer.shift();
+
       }
+
     }
-    updateCount();
-    state = 'cooldown';
-    setTimeout(() => {
-      if (state === 'cooldown') {
-        state = 'ready';
-      }
-    }, 700);
-  }
-  // =========================
-  // 게임 종료
-  // =========================
-  function endGame(win, title, text) {
-    state = 'ended';
-    updateCount();
-    setTimeout(() => {
-      resultTitle.textContent = title;
-      resultText.textContent = text;
-      result.classList.remove('hidden');
-    }, 500);
-  }
-  function flashMessage(text) {
-    flash = text;
-    flashUntil = performance.now() + 750;
-  }
-  // =========================
-  // 수학 함수
-  // =========================
-  function clamp(value, min, max) {
-    return Math.max(
-      min,
-      Math.min(max, value)
-    );
-  }
-  function cubicBezier(a, c1, c2, b, t) {
-    const u = 1 - t;
-    return {
-      x:
-        u * u * u * a.x +
-        3 * u * u * t * c1.x +
-        3 * u * t * t * c2.x +
-        t * t * t * b.x,
-      y:
-        u * u * u * a.y +
-        3 * u * u * t * c1.y +
-        3 * u * t * t * c2.y +
-        t * t * t * b.y
-    };
-  }
-  // =========================
-  // 배경 그리기
-  // =========================
-  function drawBackgroundCover() {
-    ctx.clearRect(0, 0, W, H);
-    if (
-      !backgroundImage.complete ||
-      !backgroundImage.naturalWidth
-    ) {
-      ctx.fillStyle = '#030813';
-      ctx.fillRect(0, 0, W, H);
-      return;
-    }
-    const iw = backgroundImage.naturalWidth;
-    const ih = backgroundImage.naturalHeight;
-    const scale = Math.max(
-      W / iw,
-      H / ih
-    );
-    const dw = iw * scale;
-    const dh = ih * scale;
-    ctx.drawImage(
-      backgroundImage,
-      (W - dw) / 2,
-      (H - dh) / 2,
-      dw,
-      dh
-    );
-    const shade =
-      ctx.createLinearGradient(
-        0,
-        0,
-        0,
-        H
-      );
-    shade.addColorStop(
-      0,
-      'rgba(0,0,0,.08)'
-    );
-    shade.addColorStop(
-      0.65,
-      'rgba(0,0,0,0)'
-    );
-    shade.addColorStop(
-      1,
-      'rgba(0,0,0,.2)'
-    );
-    ctx.fillStyle = shade;
-    ctx.fillRect(0, 0, W, H);
-  }
-  // =========================
-  // 타자 그리기
-  // =========================
-  function drawBatter() {
-    if (
-      !batterImage.complete ||
-      !batterImage.naturalWidth
-    ) {
-      return;
-    }
-    const z = zone();
-    const batterHeight = Math.min(
-      H * 0.21,
-      230
-    );
-    const imageRatio =
-      batterImage.naturalWidth /
-      batterImage.naturalHeight;
-    const batterWidth =
-      batterHeight * imageRatio;
-    // 위치 조정
-    const offsetX = -43;
-    const offsetY = 60;
-    const x =
-      z.x +
-      z.w +
-      offsetX;
-    const y =
-      z.y +
-      z.h -
-      batterHeight +
-      offsetY;
-    ctx.save();
-    ctx.shadowColor =
-      'rgba(0, 0, 0, 0.45)';
-    ctx.shadowBlur = 4;
-    ctx.shadowOffsetY = 3;
-    ctx.drawImage(
-      batterImage,
-      x,
-      y,
-      batterWidth,
-      batterHeight
-    );
-    ctx.restore();
-  }
-  // =========================
-  // 공 그리기
-  // =========================
-  function drawBall(
-    x,
-    y,
-    r,
-    rotation = 0,
-    alpha = 1
-  ) {
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.translate(x, y);
-    ctx.rotate(rotation);
-    if (
-      ballImage.complete &&
-      ballImage.naturalWidth
-    ) {
-      ctx.drawImage(
-        ballImage,
-        -r,
-        -r,
-        r * 2,
-        r * 2
-      );
-    } else {
-      ctx.fillStyle = '#f3eee3';
-      ctx.beginPath();
-      ctx.arc(
-        0,
-        0,
-        r,
-        0,
-        Math.PI * 2
-      );
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-  function drawReadyBall() {
-    const b = ballHome();
-    drawBall(
-      b.x,
-      b.y,
-      b.r
-    );
-    ctx.save();
-    ctx.strokeStyle = '#ffffff55';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(
-      b.x,
-      b.y,
-      b.r * 1.35,
-      0,
-      Math.PI * 2
-    );
-    ctx.stroke();
-    ctx.restore();
-  }
-  // =========================
-  // 스와이프 선
-  // =========================
-  function drawPointer() {
-    if (
-      !dragging ||
-      pointer.length < 2
-    ) {
-      return;
-    }
-    ctx.save();
-    ctx.strokeStyle = '#ffffffaa';
-    ctx.lineWidth = 5;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(
-      pointer[0].x,
-      pointer[0].y
-    );
-    for (const p of pointer.slice(1)) {
-      ctx.lineTo(p.x, p.y);
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
-  // =========================
-  // 결과 문구
-  // =========================
-  function drawFlash() {
-    if (
-      performance.now() >
-      flashUntil
-    ) {
-      return;
-    }
-    ctx.save();
-    ctx.fillStyle = '#fff';
-    ctx.font =
-      `900 ${Math.min(42, W * 0.1)}px system-ui`;
-    ctx.textAlign = 'center';
-    ctx.shadowColor = '#000';
-    ctx.shadowBlur = 16;
-    ctx.fillText(
-      flash,
-      W / 2,
-      H * 0.22
-    );
-    ctx.restore();
-  }
-  // =========================
-  // 프레임 반복
-  // =========================
-  function frame(now) {
-    const dt = Math.min(
-      40,
-      now - lastTime
-    );
-    lastTime = now;
-    drawBackgroundCover();
-    // 타자 표시
-    drawBatter();
-    if (
-      state === 'ready' ||
-      state === 'cooldown'
-    ) {
-      drawReadyBall();
-    }
-    drawPointer();
-    if (
-      state === 'pitching' &&
-      pitch
-    ) {
-      pitch.t += dt;
-      const t = Math.min(
-        1,
-        pitch.t / pitch.duration
-      );
-      const eased =
-        1 -
-        Math.pow(
-          1 - t,
-          2.15
-        );
-      for (
-        let i = 7;
-        i >= 1;
-        i--
+
+  );
+
+  canvas.addEventListener(
+
+    'pointerup',
+
+    (e) => {
+
+      if (
+
+        !dragging ||
+
+        state !== 'ready'
+
       ) {
-        const tt = Math.max(
-          0,
-          eased - i * 0.022
-        );
-        const tp =
-          cubicBezier(
-            pitch.start,
-            pitch.control1,
-            pitch.control2,
-            pitch.end,
-            tt
-          );
-        const tr =
-          pitch.start.r *
-          (1 - tt * 0.82) *
-          (1 - i * 0.055);
-        drawBall(
-          tp.x,
-          tp.y,
-          tr,
-          tt * 18 * pitch.curve,
-          Math.max(
-            0.035,
-            0.2 - i * 0.022
-          )
-        );
+
+        return;
+
       }
-      const p =
-        cubicBezier(
-          pitch.start,
-          pitch.control1,
-          pitch.control2,
-          pitch.end,
-          eased
-        );
-      const r =
-        pitch.start.r *
-        (1 - eased * 0.82);
-      drawBall(
-        p.x,
-        p.y,
-        r,
-        eased * 18 * pitch.curve
-      );
-      if (t >= 1) { 
-        resolvePitch();
-      }
+
+      dragging = false;
+
+      pointer.push(getPos(e));
+
+      throwPitch();
+
     }
-    drawFlash();
-    requestAnimationFrame(frame);
+
+  );
+
+  canvas.addEventListener(
+
+    'pointercancel',
+
+    () => {
+
+      dragging = false;
+
+      pointer = [];
+
+    }
+
+  );
+
+  // =========================
+
+  // 투구 계산
+
+  // =========================
+
+  function throwPitch() {
+
+    if (pointer.length < 2) {
+
+      return;
+
+    }
+
+    const a = pointer[0];
+
+    const b =
+
+      pointer[pointer.length - 1];
+
+    const dx = b.x - a.x;
+
+    const dy = b.y - a.y;
+
+    const dist = Math.hypot(
+
+      dx,
+
+      dy
+
+    );
+
+    const dt = Math.max(
+
+      55,
+
+      b.t - a.t
+
+    );
+
+    const swipeSpeed =
+
+      dist / dt;
+
+    const home = ballHome();
+
+    if (
+
+      dy > -30 ||
+
+      dist < 38
+
+    ) {
+
+      flashMessage(
+
+        '스와이프가 너무 짧습니다'
+
+      );
+
+      pointer = [];
+
+      return;
+
+    }
+
+    const power = clamp(
+
+      swipeSpeed / 1.18,
+
+      0,
+
+      1.4
+
+    );
+
+    const horizontalAim = clamp(
+
+      dx / Math.max(
+
+        75,
+
+        W * 0.21
+
+      ),
+
+      -1.25,
+
+      1.25
+
+    );
+
+    const contactOffset = clamp(
+
+      (a.x - home.x) /
+
+        (home.r * 0.7),
+
+      -1.2,
+
+      1.2
+
+    );
+
+    const mid =
+
+      pointer[
+
+        Math.floor(
+
+          pointer.length * 0.45
+
+        )
+
+      ] || a;
+
+    const gestureBend =
+
+      (b.x - mid.x) /
+
+      Math.max(
+
+        65,
+
+        W * 0.18
+
+      );
+
+    const curve = clamp(
+
+      -contactOffset *
+
+        (0.52 + power * 0.46) +
+
+        gestureBend * 0.55,
+
+      -1.25,
+
+      1.25
+
+    );
+
+    const z = zone();
+
+    const targetX =
+
+      z.x +
+
+      z.w / 2 +
+
+      horizontalAim *
+
+        z.w *
+
+        1.8 +
+
+      curve *
+
+        z.w *
+
+        0.62;
+
+    const targetY =
+
+      z.y +
+
+      z.h *
+
+        (3 - power * 3);
+
+    pitch = {
+
+      t: 0,
+
+      duration: Math.max(
+
+        410,
+
+        680 - power * 170
+
+      ),
+
+      start: home,
+
+      control1: {
+
+        x:
+
+          home.x +
+
+          horizontalAim *
+
+            W *
+
+            0.035,
+
+        y: H * 0.67
+
+      },
+
+      control2: {
+
+        x:
+
+          targetX -
+
+          curve *
+
+            W *
+
+            0.28,
+
+        y: H * 0.52
+
+      },
+
+      end: {
+
+        x: targetX,
+
+        y: targetY
+
+      },
+
+      power,
+
+      curve,
+
+      label:
+
+        Math.abs(curve) < 0.12
+
+          ? '직구'
+
+          : curve < 0
+
+            ? '좌 커브'
+
+            : '우 커브'
+
+    };
+
+    state = 'pitching';
+
+    pointer = [];
+
+    pitchInfo.textContent =
+
+      `${pitch.label} · ${Math.round(
+
+        116 + power * 36
+
+      )} km/h`;
+
   }
+
+  // =========================
+
+  // 판정 함수
+
+  // =========================
+
+  function circleTouchesRect(
+
+    cx,
+
+    cy,
+
+    r,
+
+    rect
+
+  ) {
+
+    const nearestX = clamp(
+
+      cx,
+
+      rect.x,
+
+      rect.x + rect.w
+
+    );
+
+    const nearestY = clamp(
+
+      cy,
+
+      rect.y,
+
+      rect.y + rect.h
+
+    );
+
+    const dx = cx - nearestX;
+
+    const dy = cy - nearestY;
+
+    return (
+
+      dx * dx +
+
+        dy * dy <=
+
+      r * r
+
+    );
+
+  }
+
+  function circleFullyInsideRect(
+
+    cx,
+
+    cy,
+
+    r,
+
+    rect
+
+  ) {
+
+    return (
+
+      cx - r >= rect.x &&
+
+      cx + r <=
+
+        rect.x + rect.w &&
+
+      cy - r >= rect.y &&
+
+      cy + r <=
+
+        rect.y + rect.h
+
+    );
+
+  }
+
+  function estimateInsideRatio(
+
+    cx,
+
+    cy,
+
+    r,
+
+    rect
+
+  ) {
+
+    const grid = 31;
+
+    let circlePoints = 0;
+
+    let insidePoints = 0;
+
+    for (
+
+      let iy = 0;
+
+      iy < grid;
+
+      iy++
+
+    ) {
+
+      const py =
+
+        cy -
+
+        r +
+
+        ((iy + 0.5) / grid) *
+
+          r *
+
+          2;
+
+      for (
+
+        let ix = 0;
+
+        ix < grid;
+
+        ix++
+
+      ) {
+
+        const px =
+
+          cx -
+
+          r +
+
+          ((ix + 0.5) / grid) *
+
+            r *
+
+            2;
+
+        const dx = px - cx;
+
+        const dy = py - cy;
+
+        if (
+
+          dx * dx +
+
+            dy * dy >
+
+          r * r
+
+        ) {
+
+          continue;
+
+        }
+
+        circlePoints++;
+
+        if (
+
+          px >= rect.x &&
+
+          px <=
+
+            rect.x + rect.w &&
+
+          py >= rect.y &&
+
+          py <=
+
+            rect.y + rect.h
+
+        ) {
+
+          insidePoints++;
+
+        }
+
+      }
+
+    }
+
+    return circlePoints
+
+      ? insidePoints /
+
+          circlePoints
+
+      : 0;
+
+  }
+
+  // =========================
+
+  // 투구 결과 판정
+
+  // =========================
+
+  function resolvePitch() {
+
+    if (
+
+      !pitch ||
+
+      state !== 'pitching'
+
+    ) {
+
+      return;
+
+    }
+
+    const z = zone();
+
+    const finalRadius =
+
+      pitch.start.r * 0.18;
+
+    const x = pitch.end.x;
+
+    const y = pitch.end.y;
+
+    const touches =
+
+      circleTouchesRect(
+
+        x,
+
+        y,
+
+        finalRadius,
+
+        z
+
+      );
+
+    if (touches) {
+
+      const fullyInside =
+
+        circleFullyInsideRect(
+
+          x,
+
+          y,
+
+          finalRadius,
+
+          z
+
+        );
+
+      const overlap = fullyInside
+
+        ? 1
+
+        : estimateInsideRatio(
+
+            x,
+
+            y,
+
+            finalRadius,
+
+            z
+
+          );
+
+      const hitRate = fullyInside
+
+        ? 1
+
+        : 0.1 +
+
+          0.9 *
+
+            clamp(
+
+              overlap,
+
+              0,
+
+              1
+
+            );
+
+      const hit =
+
+        Math.random() < hitRate;
+
+      // 안타
+
+      if (hit) {
+
+        showResultScene(
+
+          hitResultImage
+
+        );
+
+        return;
+
+      }
+
+      // 헛스윙 스트라이크
+
+      strikes++;
+
+      updateCount();
+
+      if (strikes >= 3) {
+
+        showResultScene(
+
+          strikeoutResultImage
+
+        );
+
+        return;
+
+      }
+
+      flashMessage('헛스윙!');
+
+    } else {
+
+      // 볼
+
+      balls++;
+
+      updateCount();
+
+      const tooLow =
+
+        y - finalRadius >
+
+        z.y + z.h;
+
+      const tooHigh =
+
+        y + finalRadius <
+
+        z.y;
+
+      flashMessage(
+
+        tooLow
+
+          ? '낮은 볼'
+
+          : tooHigh
+
+            ? '높은 볼'
+
+            : '볼'
+
+      );
+
+      if (balls >= 4) {
+
+        endGame(
+
+          false,
+
+          '밀어내기 볼넷',
+
+          '공이 스트라이크존에 전혀 닿지 않았습니다.'
+
+        );
+
+        return;
+
+      }
+
+    }
+
+    state = 'cooldown';
+
+    setTimeout(() => {
+
+      if (state === 'cooldown') {
+
+        state = 'ready';
+
+      }
+
+    }, 700);
+
+  }
+
+  // =========================
+
+  // 안타·삼진 결과 이미지 시작
+
+  // =========================
+
+  function showResultScene(image) {
+
+    state = 'resultScene';
+
+    pitch = null;
+
+    pointer = [];
+
+    dragging = false;
+
+    flash = '';
+
+    flashUntil = 0;
+
+    resultSceneImage = image;
+
+    resultSceneStartedAt =
+
+      performance.now();
+
+    result.classList.add('hidden');
+
+    message.classList.add('hidden');
+
+    pitchInfo.textContent = '';
+
+  }
+
+  // =========================
+
+  // 볼넷 결과창
+
+  // =========================
+
+  function endGame(
+
+    win,
+
+    title,
+
+    text
+
+  ) {
+
+    state = 'ended';
+
+    pitch = null;
+
+    pointer = [];
+
+    dragging = false;
+
+    updateCount();
+
+    setTimeout(() => {
+
+      resultTitle.textContent =
+
+        title;
+
+      resultText.textContent =
+
+        text;
+
+      result.classList.remove(
+
+        'hidden'
+
+      );
+
+    }, 500);
+
+  }
+
+  function flashMessage(text) {
+
+    flash = text;
+
+    flashUntil =
+
+      performance.now() + 750;
+
+  }
+
+  // =========================
+
+  // 수학 함수
+
+  // =========================
+
+  function clamp(
+
+    value,
+
+    min,
+
+    max
+
+  ) {
+
+    return Math.max(
+
+      min,
+
+      Math.min(
+
+        max,
+
+        value
+
+      )
+
+    );
+
+  }
+
+  function cubicBezier(
+
+    a,
+
+    c1,
+
+    c2,
+
+    b,
+
+    t
+
+  ) {
+
+    const u = 1 - t;
+
+    return {
+
+      x:
+
+        u * u * u * a.x +
+
+        3 *
+
+          u *
+
+          u *
+
+          t *
+
+          c1.x +
+
+        3 *
+
+          u *
+
+          t *
+
+          t *
+
+          c2.x +
+
+        t *
+
+          t *
+
+          t *
+
+          b.x,
+
+      y:
+
+        u * u * u * a.y +
+
+        3 *
+
+          u *
+
+          u *
+
+          t *
+
+          c1.y +
+
+        3 *
+
+          u *
+
+          t *
+
+          t *
+
+          c2.y +
+
+        t *
+
+          t *
+
+          t *
+
+          b.y
+
+    };
+
+  }
+
+  // =========================
+
+  // 배경 그리기
+
+  // =========================
+
+  function drawBackgroundCover() {
+
+    ctx.clearRect(
+
+      0,
+
+      0,
+
+      W,
+
+      H
+
+    );
+
+    if (
+
+      !backgroundImage.complete ||
+
+      !backgroundImage.naturalWidth
+
+    ) {
+
+      ctx.fillStyle = '#030813';
+
+      ctx.fillRect(
+
+        0,
+
+        0,
+
+        W,
+
+        H
+
+      );
+
+      return;
+
+    }
+
+    const iw =
+
+      backgroundImage.naturalWidth;
+
+    const ih =
+
+      backgroundImage.naturalHeight;
+
+    const scale = Math.max(
+
+      W / iw,
+
+      H / ih
+
+    );
+
+    const dw = iw * scale;
+
+    const dh = ih * scale;
+
+    ctx.drawImage(
+
+      backgroundImage,
+
+      (W - dw) / 2,
+
+      (H - dh) / 2,
+
+      dw,
+
+      dh
+
+    );
+
+    const shade =
+
+      ctx.createLinearGradient(
+
+        0,
+
+        0,
+
+        0,
+
+        H
+
+      );
+
+    shade.addColorStop(
+
+      0,
+
+      'rgba(0,0,0,.08)'
+
+    );
+
+    shade.addColorStop(
+
+      0.65,
+
+      'rgba(0,0,0,0)'
+
+    );
+
+    shade.addColorStop(
+
+      1,
+
+      'rgba(0,0,0,.2)'
+
+    );
+
+    ctx.fillStyle = shade;
+
+    ctx.fillRect(
+
+      0,
+
+      0,
+
+      W,
+
+      H
+
+    );
+
+  }
+
+  // =========================
+
+  // 안타·삼진 결과 이미지 그리기
+
+  // =========================
+
+  function drawResultScene(now) {
+
+    ctx.clearRect(
+
+      0,
+
+      0,
+
+      W,
+
+      H
+
+    );
+
+    ctx.fillStyle = '#030813';
+
+    ctx.fillRect(
+
+      0,
+
+      0,
+
+      W,
+
+      H
+
+    );
+
+    if (!resultSceneImage) {
+
+      return;
+
+    }
+
+    const elapsed =
+
+      now -
+
+      resultSceneStartedAt;
+
+    if (
+
+      resultSceneImage.complete &&
+
+      resultSceneImage.naturalWidth
+
+    ) {
+
+      const iw =
+
+        resultSceneImage.naturalWidth;
+
+      const ih =
+
+        resultSceneImage.naturalHeight;
+
+      // 화면 전체를 채우는 cover
+
+      const baseScale = Math.max(
+
+        W / iw,
+
+        H / ih
+
+      );
+
+      const introProgress =
+
+        clamp(
+
+          elapsed / 220,
+
+          0,
+
+          1
+
+        );
+
+      // 처음에 살짝 확대됐다가 줄어듦
+
+      const zoom =
+
+        1.06 -
+
+        introProgress * 0.06;
+
+      const dw =
+
+        iw *
+
+        baseScale *
+
+        zoom;
+
+      const dh =
+
+        ih *
+
+        baseScale *
+
+        zoom;
+
+      const x =
+
+        W / 2 -
+
+        dw / 2;
+
+      const y =
+
+        H / 2 -
+
+        dh / 2;
+
+      ctx.save();
+
+      ctx.globalAlpha =
+
+        introProgress;
+
+      ctx.drawImage(
+
+        resultSceneImage,
+
+        x,
+
+        y,
+
+        dw,
+
+        dh
+
+      );
+
+      ctx.restore();
+
+      const vignette =
+
+        ctx.createRadialGradient(
+
+          W / 2,
+
+          H / 2,
+
+          Math.min(W, H) *
+
+            0.2,
+
+          W / 2,
+
+          H / 2,
+
+          Math.max(W, H) *
+
+            0.75
+
+        );
+
+      vignette.addColorStop(
+
+        0,
+
+        'rgba(0,0,0,0)'
+
+      );
+
+      vignette.addColorStop(
+
+        1,
+
+        'rgba(0,0,0,0.3)'
+
+      );
+
+      ctx.fillStyle =
+
+        vignette;
+
+      ctx.fillRect(
+
+        0,
+
+        0,
+
+        W,
+
+        H
+
+      );
+
+    } else {
+
+      ctx.save();
+
+      ctx.fillStyle =
+
+        '#ffffff';
+
+      ctx.font =
+
+        `900 ${Math.min(
+
+          42,
+
+          W * 0.1
+
+        )}px system-ui`;
+
+      ctx.textAlign =
+
+        'center';
+
+      ctx.textBaseline =
+
+        'middle';
+
+      ctx.fillText(
+
+        '결과 이미지 로딩 중',
+
+        W / 2,
+
+        H / 2
+
+      );
+
+      ctx.restore();
+
+    }
+
+    // 2초 후 자동 재시작
+
+    if (
+
+      elapsed >=
+
+      RESULT_SCENE_DURATION
+
+    ) {
+
+      resetGame();
+
+    }
+
+  }
+
+  // =========================
+
+  // 타자 그리기
+
+  // =========================
+
+  function drawBatter() {
+
+    if (
+
+      !batterImage.complete ||
+
+      !batterImage.naturalWidth
+
+    ) {
+
+      return;
+
+    }
+
+    const z = zone();
+
+    const batterHeight = Math.min(
+
+      H * 0.21,
+
+      230
+
+    );
+
+    const imageRatio =
+
+      batterImage.naturalWidth /
+
+      batterImage.naturalHeight;
+
+    const batterWidth =
+
+      batterHeight *
+
+      imageRatio;
+
+    // 타자 위치
+
+    const offsetX = -43;
+
+    const offsetY = 60;
+
+    const x =
+
+      z.x +
+
+      z.w +
+
+      offsetX;
+
+    const y =
+
+      z.y +
+
+      z.h -
+
+      batterHeight +
+
+      offsetY;
+
+    ctx.save();
+
+    ctx.shadowColor =
+
+      'rgba(0,0,0,0.45)';
+
+    ctx.shadowBlur = 4;
+
+    ctx.shadowOffsetY = 3;
+
+    ctx.drawImage(
+
+      batterImage,
+
+      x,
+
+      y,
+
+      batterWidth,
+
+      batterHeight
+
+    );
+
+    ctx.restore();
+
+  }
+
+  // =========================
+
+  // 공 그리기
+
+  // =========================
+
+  function drawBall(
+
+    x,
+
+    y,
+
+    r,
+
+    rotation = 0,
+
+    alpha = 1
+
+  ) {
+
+    ctx.save();
+
+    ctx.globalAlpha =
+
+      alpha;
+
+    ctx.translate(
+
+      x,
+
+      y
+
+    );
+
+    ctx.rotate(
+
+      rotation
+
+    );
+
+    if (
+
+      ballImage.complete &&
+
+      ballImage.naturalWidth
+
+    ) {
+
+      ctx.drawImage(
+
+        ballImage,
+
+        -r,
+
+        -r,
+
+        r * 2,
+
+        r * 2
+
+      );
+
+    } else {
+
+      ctx.fillStyle =
+
+        '#f3eee3';
+
+      ctx.beginPath();
+
+      ctx.arc(
+
+        0,
+
+        0,
+
+        r,
+
+        0,
+
+        Math.PI * 2
+
+      );
+
+      ctx.fill();
+
+    }
+
+    ctx.restore();
+
+  }
+
+  function drawReadyBall() {
+
+    const b = ballHome();
+
+    drawBall(
+
+      b.x,
+
+      b.y,
+
+      b.r
+
+    );
+
+    ctx.save();
+
+    ctx.strokeStyle =
+
+      '#ffffff55';
+
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+
+    ctx.arc(
+
+      b.x,
+
+      b.y,
+
+      b.r * 1.35,
+
+      0,
+
+      Math.PI * 2
+
+    );
+
+    ctx.stroke();
+
+    ctx.restore();
+
+  }
+
+  // =========================
+
+  // 스와이프 선
+
+  // =========================
+
+  function drawPointer() {
+
+    if (
+
+      !dragging ||
+
+      pointer.length < 2
+
+    ) {
+
+      return;
+
+    }
+
+    ctx.save();
+
+    ctx.strokeStyle =
+
+      '#ffffffaa';
+
+    ctx.lineWidth = 5;
+
+    ctx.lineCap = 'round';
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+
+      pointer[0].x,
+
+      pointer[0].y
+
+    );
+
+    for (
+
+      const p of pointer.slice(1)
+
+    ) {
+
+      ctx.lineTo(
+
+        p.x,
+
+        p.y
+
+      );
+
+    }
+
+    ctx.stroke();
+
+    ctx.restore();
+
+  }
+
+  // =========================
+
+  // 화면 문구
+
+  // =========================
+
+  function drawFlash() {
+
+    if (
+
+      performance.now() >
+
+      flashUntil
+
+    ) {
+
+      return;
+
+    }
+
+    ctx.save();
+
+    ctx.fillStyle = '#fff';
+
+    ctx.font =
+
+      `900 ${Math.min(
+
+        42,
+
+        W * 0.1
+
+      )}px system-ui`;
+
+    ctx.textAlign =
+
+      'center';
+
+    ctx.shadowColor =
+
+      '#000';
+
+    ctx.shadowBlur = 16;
+
+    ctx.fillText(
+
+      flash,
+
+      W / 2,
+
+      H * 0.22
+
+    );
+
+    ctx.restore();
+
+  }
+
+  // =========================
+
+  // 프레임 반복
+
+  // =========================
+
+  function frame(now) {
+
+    const dt = Math.min(
+
+      40,
+
+      now - lastTime
+
+    );
+
+    lastTime = now;
+
+    // 안타 또는 삼진 이미지 표시 중
+
+    if (
+
+      state === 'resultScene'
+
+    ) {
+
+      drawResultScene(now);
+
+      requestAnimationFrame(
+
+        frame
+
+      );
+
+      return;
+
+    }
+
+    drawBackgroundCover();
+
+    // 타자 표시
+
+    drawBatter();
+
+    if (
+
+      state === 'ready' ||
+
+      state === 'cooldown'
+
+    ) {
+
+      drawReadyBall();
+
+    }
+
+    drawPointer();
+
+    if (
+
+      state === 'pitching' &&
+
+      pitch
+
+    ) {
+
+      pitch.t += dt;
+
+      const t = Math.min(
+
+        1,
+
+        pitch.t /
+
+          pitch.duration
+
+      );
+
+      const eased =
+
+        1 -
+
+        Math.pow(
+
+          1 - t,
+
+          2.15
+
+        );
+
+      for (
+
+        let i = 7;
+
+        i >= 1;
+
+        i--
+
+      ) {
+
+        const tt = Math.max(
+
+          0,
+
+          eased -
+
+            i * 0.022
+
+        );
+
+        const tp =
+
+          cubicBezier(
+
+            pitch.start,
+
+            pitch.control1,
+
+            pitch.control2,
+
+            pitch.end,
+
+            tt
+
+          );
+
+        const tr =
+
+          pitch.start.r *
+
+          (1 - tt * 0.82) *
+
+          (1 - i * 0.055);
+
+        drawBall(
+
+          tp.x,
+
+          tp.y,
+
+          tr,
+
+          tt *
+
+            18 *
+
+            pitch.curve,
+
+          Math.max(
+
+            0.035,
+
+            0.2 -
+
+              i * 0.022
+
+          )
+
+        );
+
+      }
+
+      const p =
+
+        cubicBezier(
+
+          pitch.start,
+
+          pitch.control1,
+
+          pitch.control2,
+
+          pitch.end,
+
+          eased
+
+        );
+
+      const r =
+
+        pitch.start.r *
+
+        (1 - eased * 0.82);
+
+      drawBall(
+
+        p.x,
+
+        p.y,
+
+        r,
+
+        eased *
+
+          18 *
+
+          pitch.curve
+
+      );
+
+      if (t >= 1) {
+
+        resolvePitch();
+
+      }
+
+    }
+
+    drawFlash();
+
+    requestAnimationFrame(
+
+      frame
+
+    );
+
+  }
+
+  // =========================
+
+  // 버튼
+
+  // =========================
+
   startBtn.addEventListener(
+
     'click',
+
     resetGame
+
   );
+
   restartBtn.addEventListener(
+
     'click',
+
     resetGame
+
   );
-  requestAnimationFrame(frame);
+
+  requestAnimationFrame(
+
+    frame
+
+  );
+
 })();
