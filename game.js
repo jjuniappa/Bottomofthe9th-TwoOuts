@@ -477,8 +477,8 @@
     const batterWidth =
       batterHeight * imageRatio;
     // 위치 조정
-    const offsetX = -65;
-    const offsetY = 25;
+    const offsetX = -48;
+    const offsetY = 50;
     const x =
       z.x +
       z.w +
