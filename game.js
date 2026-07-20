@@ -61,6 +61,70 @@ strikeoutResultImage.src =
   './assets/B61EF198-8F8B-416F-9B15-86D02009A1B5.png';
 
   // =========================
+// 사운드 불러오기
+// =========================
+
+const soundStrike = new Audio(
+  './assets/sound_strike.mp4'
+);
+
+const soundOut = new Audio(
+  './assets/sound_out.mp4'
+);
+
+const soundBall = new Audio(
+  './assets/sound_ball.mp4'
+);
+
+const soundHit = new Audio(
+  './assets/assets_Freesoundcraft_Hit_Target_03.mp4'
+);
+
+const soundCheer = new Audio(
+  './assets/assets_Freesoundcraft_Crowd_Cheer_03.mp4'
+);
+
+const soundThrow = new Audio(
+  './assets/ElevenLabs_Pitcher_throwing_a_fastball,_whoosh_sound.mp3'
+);
+
+// 미리 불러오기
+[
+  soundStrike,
+  soundOut,
+  soundBall,
+  soundHit,
+  soundCheer,
+  soundThrow
+].forEach((sound) => {
+  sound.preload = 'auto';
+});
+
+// 사운드를 처음부터 재생
+function playSound(sound) {
+  if (!sound) {
+    return;
+  }
+
+  sound.pause();
+  sound.currentTime = 0;
+
+  const playPromise = sound.play();
+
+  if (
+    playPromise &&
+    typeof playPromise.catch === 'function'
+  ) {
+    playPromise.catch((error) => {
+      console.warn(
+        '사운드를 재생하지 못했습니다:',
+        sound.src,
+        error
+      );
+    });
+  }
+}
+  // =========================
 
   // 게임 상태값
 
@@ -636,6 +700,8 @@ strikeoutResultImage.src =
 
     };
 
+    playSound(soundThrow);
+    
     state = 'pitching';
 
     pointer = [];
@@ -948,50 +1014,50 @@ strikeoutResultImage.src =
 
         Math.random() < hitRate;
 
-      // 안타
+// 안타
+if (hit) {
+  // 타격음과 관중 환호음을 동시에 재생
+  playSound(soundHit);
+  playSound(soundCheer);
 
-      if (hit) {
+  showResultScene(
+    hitResultImage
+  );
 
-        showResultScene(
+  return;
+}
 
-          hitResultImage
+// 헛스윙 스트라이크
+strikes++;
 
-        );
+updateCount();
 
-        return;
+if (strikes >= 3) {
+  // 삼진 이미지가 나오는 순간 삼진 사운드 재생
+  playSound(soundOut);
 
-      }
+  showResultScene(
+    strikeoutResultImage
+  );
 
-      // 헛스윙 스트라이크
+  return;
+}
 
-      strikes++;
+// 1·2 스트라이크에서만 스트라이크 사운드 재생
+playSound(soundStrike);
 
-      updateCount();
-
-      if (strikes >= 3) {
-
-        showResultScene(
-
-          strikeoutResultImage
-
-        );
-
-        return;
-
-      }
-
-      flashMessage('헛스윙!');
+flashMessage('헛스윙!');
 
     } else {
 
       // 볼
+balls++;
 
-      balls++;
+updateCount();
 
-      updateCount();
+playSound(soundBall);
 
-      const tooLow =
-
+const tooLow =
         y - finalRadius >
 
         z.y + z.h;
